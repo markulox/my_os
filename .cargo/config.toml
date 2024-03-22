@@ -1,0 +1,13 @@
+[build]
+target = "x86_64-my_os.json"
+
+[stable]
+build-std-features = ["compiler-builtins-mem"]
+build-std = ["core", "compiler_builtins"]
+
+[unstable]
+build-std-features = ["compiler-builtins-mem"]
+build-std = ["core", "compiler_builtins"]
+
+[taget.'cfg(target_os = "none")']
+runner = "bootimage runner"
