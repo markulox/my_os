@@ -1,8 +1,8 @@
+use crate::vga_buffer::Color::{Black, LightGrey, Pink};
 use core::fmt;
 use core::fmt::Arguments;
 use lazy_static::lazy_static;
 use volatile::Volatile;
-use crate::vga_buffer::Color::{Black, LightGrey, Pink};
 
 #[allow(dead_code)]
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -65,7 +65,8 @@ impl Writer {
         match byte {
             b'\n' => self.new_line(),
             b'\t' => self.indent(),
-            byte => { // In case of any other bytes, we will put into byte variable
+            byte => {
+                // In case of any other bytes, we will put into byte variable
                 if self.column_pos >= BUFFER_WIDTH {
                     self.new_line();
                 }
@@ -82,7 +83,7 @@ impl Writer {
         }
     }
 
-    pub fn write_string(&mut self, s: &str) {
+    fn write_string(&mut self, s: &str) {
         for byte in s.bytes() {
             match byte {
                 0x20..=0x7e | b'\n' => self.write_byte(byte),
@@ -112,6 +113,7 @@ impl Writer {
                 ((self.column_pos / INDENT_SIZE) + 1) * INDENT_SIZE
             } else {
                 BUFFER_WIDTH - 1
+                // May be new line instead?
             }
         }
     }
@@ -143,24 +145,22 @@ impl fmt::Write for Writer {
     // }
 }
 
+use spin::Mutex;
+
 lazy_static! {
-    pub static ref WRITER: Writer = Writer {
-    column_pos: 0,
-    color_code: ColorCode::new(Color::Cyan, Color::DarkGrey),
-    buffer: unsafe { &mut *(0xb8000 as *mut Buffer) },
-};
+    pub static ref WRITER: Mutex<Writer> = Mutex::new(Writer {
+        column_pos: 0,
+        color_code: ColorCode::new(Color::Cyan, Color::Black),
+        buffer: unsafe { &mut *(0xb8000 as *mut Buffer) },
+    });
 }
 
 pub fn demo_printing() {
     use core::fmt::Write;
     let mut writer = Writer {
         column_pos: 0,
-        color_code: ColorCode::new(
-            LightGrey, Black,
-        ),
-        buffer: unsafe {
-            &mut *(0xb8000 as *mut Buffer)
-        },
+        color_code: ColorCode::new(LightGrey, Black),
+        buffer: unsafe { &mut *(0xb8000 as *mut Buffer) },
     };
 
     writer.write_byte(b'H');

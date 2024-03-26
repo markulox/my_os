@@ -1,6 +1,8 @@
 #![no_std]
 #![no_main]
-use core::panic::PanicInfo;
+use core::{fmt::write, panic::PanicInfo};
+
+use crate::vga_buffer::WRITER;
 
 mod vga_buffer;
 
@@ -13,6 +15,8 @@ static HELLO: &[u8] = b"Hello World from my_OS v.0.0.1";
 
 #[no_mangle]
 pub extern "C" fn _start() -> ! {
-    vga_buffer::demo_printing();
+    use core::fmt::Write;
+    WRITER.lock().write_str("Hello from ANX ").unwrap();
+    write!(WRITER.lock(), "(Author has No eXperience) Kernel v.0.0.{}" , 1).unwrap();
     loop {}
 }
