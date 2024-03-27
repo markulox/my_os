@@ -1,6 +1,4 @@
 use crate::vga_buffer::Color::{Black, LightGrey, Pink};
-use core::fmt;
-use core::fmt::Arguments;
 use lazy_static::lazy_static;
 use volatile::Volatile;
 
@@ -86,7 +84,7 @@ impl Writer {
     fn write_string(&mut self, s: &str) {
         for byte in s.bytes() {
             match byte {
-                0x20..=0x7e | b'\n' => self.write_byte(byte),
+                0x20..=0x7e | b'\n' | b'\t' => self.write_byte(byte),
                 _ => self.write_byte(0xfe),
             }
         }
@@ -127,8 +125,13 @@ impl Writer {
             self.buffer.chars[row][col].write(blank);
         }
     }
+
+    fn set_color(&mut self, color_code: ColorCode){
+        self.color_code = color_code;
+    }
 }
 
+use core::fmt::{self, Write};
 impl fmt::Write for Writer {
     fn write_str(&mut self, s: &str) -> fmt::Result {
         self.write_string(s);
@@ -150,13 +153,56 @@ use spin::Mutex;
 lazy_static! {
     pub static ref WRITER: Mutex<Writer> = Mutex::new(Writer {
         column_pos: 0,
-        color_code: ColorCode::new(Color::Cyan, Color::Black),
+        color_code: ColorCode::new(Color::LightGrey, Color::Black),
         buffer: unsafe { &mut *(0xb8000 as *mut Buffer) },
     });
 }
 
+// Implementation of print macro
+#[macro_export]
+macro_rules! print {
+    ($($arg:tt)*) => ($crate::vga_buffer::_print(format_args!($($arg)*)));
+}
+
+#[macro_export]
+macro_rules! print_panic {
+    ($($arg:tt)*) => ($crate::vga_buffer::_print_panic(format_args!($($arg)*)));
+}
+
+#[macro_export]
+macro_rules! print_important {
+    ($($arg:tt)*) => ($crate::vga_buffer::_print_important(format_args!($($arg)*)));
+}
+
+#[macro_export]
+macro_rules! println {
+    () => ($crate::print!("\n"));
+    ($($arg:tt)*) => ($crate::print!("{}\n", format_args!($($arg)*)));
+}
+
+#[doc(hidden)]
+pub fn _print(args: fmt::Arguments) {
+    WRITER.lock().write_fmt(args).unwrap();
+}
+
+pub fn _print_panic(args: fmt::Arguments) {
+    let orig_color = WRITER.lock().color_code;
+    let panic_color = ColorCode::new(Color::LightRed, Color::Black);
+    WRITER.lock().set_color(panic_color);
+    WRITER.lock().write_fmt(args).unwrap();
+    WRITER.lock().set_color(orig_color);
+}
+
+pub fn _print_important(args: fmt::Arguments) {
+    let orig_color = WRITER.lock().color_code;
+    let panic_color = ColorCode::new(Color::White, Color::Black);
+    WRITER.lock().set_color(panic_color);
+    WRITER.lock().write_fmt(args).unwrap();
+    WRITER.lock().set_color(orig_color);
+}
+
+#[allow(dead_code)]
 pub fn demo_printing() {
-    use core::fmt::Write;
     let mut writer = Writer {
         column_pos: 0,
         color_code: ColorCode::new(LightGrey, Black),
